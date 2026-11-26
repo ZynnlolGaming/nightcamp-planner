@@ -1107,7 +1107,10 @@ $('#lvR').oninput=e=>{ S.baseLv=+e.target.value; clampStats(); renderAll(); };
 $('#lvN').onchange=e=>{ S.baseLv=Math.max(1,Math.min(99,+e.target.value||1)); clampStats(); renderAll(); };
 document.querySelectorAll('.ptab').forEach(b=>b.onclick=()=>{ save(); B.cur=+b.dataset.b; S=B.list[B.cur]; renderAll(); });
 $('#pname').addEventListener('input',e=>{ S.name=e.target.value; save(); renderTop(); });
-$('#bReset').onclick=()=>{ if(!confirm(`Reset build ${['I','II','III'][B.cur]}?`)) return; S=DEF_STATE(); B.list[B.cur]=S; renderAll(); };
+$('#bReset').onclick=()=>{ const bn=['I','II','III'][B.cur]; if(!confirm(LANG==='th'?`รีเซ็ตบิลด์ ${bn} กลับเป็นหน้าเริ่มต้น?`:`Reset build ${bn} back to a fresh page?`)) return;
+  S=DEF_STATE(); B.list[B.cur]=S; save();               // (the other build slots stay as they are)
+  location.replace(location.href.split('#')[0]);       // drop any shared-build link and load the page fresh
+};
 $('#bShare').onclick=()=>{
   const h=btoa(unescape(encodeURIComponent(JSON.stringify(S)))); const url=location.href.split('#')[0]+'#'+h;
   (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast('Link copied — send it to your friends'),()=>{ history.replaceState(null,'',url); toast('Copy the link from the address bar'); });
@@ -1982,7 +1985,7 @@ const UI_TH={'Skill runes':'รูนสกิล','Season 2 runes':'รูน S
 'heal':'สายฮีล','light':'สายแสง','fist':'สายหมัด','music':'สายดนตรี','gun':'สายปืน','puppet':'สายหุ่นเชิด','string':'สายด้าย','scythe':'สายเคียว','moon':'สายจันทร์','star':'สายดวงดาว','dawn':'สายรุ่งอรุณ','dragon':'สายมังกร','blood':'สายเลือด',
 'Night Camp':'Night Camp'
 };
-const TH_RX=[[/^◆ Rune · (.+) slot (\d)$/,(m,a,b)=>`◆ รูน · ${a} ช่อง ${b}`],[/^DPS ([+−-]?[\d.]+%)$/,(m,a)=>`DPS ${a}`],[/^Single target, vs (\d+) monster types? near Lv (\d+) \(their element, armour, DEF\/MDEF\) · .*$/,(m,n,l)=>`เป้าหมายเดี่ยว เทียบกับมอน ${n} ชนิดใกล้ Lv ${l} (ธาตุ เกราะ DEF/MDEF ของมัน) · คิดคูลดาวน์ + ดีเลย์หลังร่าย คริ ความแม่น และความเร็วโจมตี ด้วยสูตร Season 2 ของเกม · การต่อสู้จริงต่างไปได้ (เดิน บัฟ รูน โปรค) ลองเทียบกับ DPS meter ในเกม`],
+const TH_RX=[[/^Reset build (I+) back to a fresh page\?$/,(m,a)=>`รีเซ็ตบิลด์ ${a} กลับเป็นหน้าเริ่มต้น?`],[/^◆ Rune · (.+) slot (\d)$/,(m,a,b)=>`◆ รูน · ${a} ช่อง ${b}`],[/^DPS ([+−-]?[\d.]+%)$/,(m,a)=>`DPS ${a}`],[/^Single target, vs (\d+) monster types? near Lv (\d+) \(their element, armour, DEF\/MDEF\) · .*$/,(m,n,l)=>`เป้าหมายเดี่ยว เทียบกับมอน ${n} ชนิดใกล้ Lv ${l} (ธาตุ เกราะ DEF/MDEF ของมัน) · คิดคูลดาวน์ + ดีเลย์หลังร่าย คริ ความแม่น และความเร็วโจมตี ด้วยสูตร Season 2 ของเกม · การต่อสู้จริงต่างไปได้ (เดิน บัฟ รูน โปรค) ลองเทียบกับ DPS meter ในเกม`],
 [/^vs (.+) near Lv (\d+)$/,(m,a,l)=>`เทียบกับ${({'All monsters':'มอนทั้งหมด','Heavy Armor':'เกราะหนัก','Spirit':'วิญญาณ','Hide':'หนังสัตว์','Flesh':'เนื้อ'})[a]||a} ใกล้ Lv ${l}`],
 [/^Hidden under your (.+): its stats don't count while the robe is worn\.$/,(m,a)=>`ถูกชุดคลุม ${a} ทับอยู่ ค่าสเตตัสไม่นับตอนสวมชุดคลุม`],
 [/^(.+) can't hold a shield\.$/,(m,a)=>`${a} ถือโล่ไม่ได้`],
