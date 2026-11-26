@@ -16,10 +16,9 @@ Made by **[Zynnlol Gaming](https://www.facebook.com/zynnlolgaming)** · แพ�
 - **English / ไทย** switch (official Thai names from the wiki)
 
 ## Get a build code from the game
-Click **🧩 Install Build Export** in the planner for step-by-step help (English + Thai). Three options:
-1. **Tampermonkey script** (recommended): [nc-build-export.user.js](nc-build-export.user.js) adds a 📋 Copy build button in the game
+Click **🧩 Install Build Export** in the planner for step-by-step help (English + Thai). Two options:
+1. **Bookmark** (easiest, no install): drag it from the planner's Import window to your bookmarks bar, then click it in the game
 2. **Chrome extension**: download [nightcamp-build-export.zip](nightcamp-build-export.zip), unzip, load it in `chrome://extensions` (Developer mode → Load unpacked)
-3. **Bookmarklet**: drag it from the planner's Import window to your bookmarks bar
 
 The exporter is read-only: it copies your build only, never your name, account, coins or inventory, and never sends anything anywhere.
 

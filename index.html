@@ -260,7 +260,7 @@ html[lang=th] body{font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,Inter,sys
 .inst-btn:hover{filter:brightness(1.08);color:#04160a!important}
 .inst.flash .instc.rec{box-shadow:0 0 0 2px var(--ac),0 0 18px rgba(245,165,36,.45);transition:box-shadow .3s}
 .inst summary{cursor:pointer;font-size:12px;color:var(--ac);font-weight:700}
-.instgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.instgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
 @media (max-width:1100px){ .instgrid{grid-template-columns:1fr 1fr} }
 .instc code{background:var(--pn2);border:1px solid var(--ln2);border-radius:5px;padding:0 4px;font-size:11px}
 .instc code.cp{cursor:pointer;color:var(--ac)}
@@ -1495,7 +1495,24 @@ async function ncExportBuild(){
   const names={job:NC.JOBS&&NC.JOBS[job]?NC.JOBS[job].name:null,sk:{},it:{}};
   Object.keys(skills).concat(Object.keys(runes)).forEach(k=>{ const S=NC.SKILLS&&NC.SKILLS[k]; if(S&&S.name) names.sk[k]=S.name; });
   Object.values(equip).forEach(id=>{ const I=NC.ITEMS&&NC.ITEMS[id]; if(I&&I.name) names.it[id]=I.name; });
-  const out={v:1,t:Date.now(),job,lv:pick('lv'),jobLv:pick('jobLv'),skills,equip,runes,stats:statC.slice(0,6),pts,names,
+  // the game's own numbers: gear totals with your real rolls, final stats (base + gear + costume…), points left
+  let gear=null, total=null, left=null, skLeft=null, skPts=null;
+  try{ if(P&&typeof NC.gearStats==='function'){ const g=NC.gearStats.call(P,P.equip); if(g&&typeof g==='object'){ gear={}; for(const [k,v] of Object.entries(g)) if(typeof v==='number'&&v) gear[k]=Math.round(v*10000)/10000; } } }catch(e){}
+  const dv=self&&self.derived; if(dv&&SK.every(k=>typeof dv[k]==='number')) total=Object.fromEntries(SK.map(k=>[k,dv[k]]));
+  try{ if(P&&typeof NC.statusLeft==='function') left=NC.statusLeft(P); }catch(e){}
+  try{ if(P&&typeof NC.skillLeft==='function') skLeft=NC.skillLeft(P); if(P&&typeof NC.skillPoints==='function') skPts=NC.skillPoints(P); }catch(e){}
+  // each worn item as you actually have it: rolled stats (with ranges), grade (background colour), options and empty sockets
+  let copies=null;
+  try{ if(P&&NC.ItemRoll){ const R=NC.ItemRoll, bag=Array.isArray(P.bag)?P.bag:Object.values(P.bag||{}); copies={};
+    for(const [sl,id] of Object.entries(P.equip||{})){ if(!id||/^(hair|fhat|frobe|tail)$/.test(sl)) continue; const it=NC.ITEMS&&NC.ITEMS[id]; if(!it) continue;
+      const u=P.wu&&P.wu[sl], c=u?bag.find(x=>x&&x.u===u):null, o={id};
+      try{ const st=R.statsFor(P.equip,sl,it)||{}; o.st={}; for(const [k,v] of Object.entries(st)) if(typeof v==='number'&&v) o.st[k]=v; }catch(e){}
+      try{ o.lines=(R.lines(it,c||undefined)||[]).map(l=>({k:l.k,label:String(l.label||''),value:String(l.value||''),range:String(l.range||'')})); }catch(e){}
+      if(c){ o.g=c.g||0; o.rows=(c.rows||[]).map(r=>{ let t=''; try{ t=String(NC.rowText(r)||'').replace(/<[^>]*>/g,''); }catch(e){} return {k:r.k,v:r.v,tier:r.tier||0,sub:r.sub||null,t}; }); }
+      if(sl==='weapon'){ try{ const v=R.held(P); if(v&&Array.isArray(v.dmg)) o.dmg=v.dmg; }catch(e){} }
+      copies[sl]=o; } } }catch(e){}
+  const base=self&&self.base&&SK.every(k=>typeof self.base[k]==='number')?Object.fromEntries(SK.map(k=>[k,self.base[k]])):null;
+  const out={v:1,t:Date.now(),job,lv:pick('lv'),jobLv:pick('jobLv'),skills,equip,runes,stats:statC.slice(0,6),pts,names,base,total,gear,left,skLeft,skPts,copies,
     keys:{self:self?Object.keys(self).slice(0,120):[],player:P?Object.keys(P).slice(0,120):[]}};
   const json=JSON.stringify(out);
   const b64=btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -1572,7 +1589,7 @@ function codeCard(c){
     <span>Skills</span><span>${m.skills.filter(x=>x.lv>0).length} learned${m.unknownSk.length?` · <span class="bad">${m.unknownSk.length} unknown: ${esc(m.unknownSk.join(', '))}</span>`:''}</span>
     <span>Runes</span><span>${Object.values(m.runes).flat().filter(Boolean).length} on ${Object.keys(m.runes).length} skills</span>
     <span>Gear</span><span>${Object.entries(m.equip).map(([sl,id])=>`${SLOT_N[sl]}: ${esc(ITEM[id].n)}`).join(' · ')||'none'}${m.unknownIt.length?` · <span class="bad">not in planner data: ${esc(m.unknownIt.join(', '))}</span>`:''}</span>
-  </div>${c.raw&&!c.raw.copies?`<div class="bad" style="font-size:12px;margin-top:6px">⚠ This code is from an older Build Export (no item grades, rolls or options). Update the extension to v1.2 — replace its folder, press ↻ in chrome://extensions — and export again.</div>`:''}${!m.stats?`<details style="margin-top:6px;font-size:11px"><summary class="dim">keys</summary><code style="word-break:break-all">${esc((c.raw.keys?.self||[]).join(', '))} | ${esc((c.raw.keys?.player||[]).join(', '))}</code></details>`:''}</div>`;
+  </div>${c.raw&&!c.raw.copies?`<div class="bad" style="font-size:12px;margin-top:6px">⚠ This code is from an older Build Export (no item grades, rolls or options). Bookmark: delete the old bookmark and drag the new one from the guide below. Extension: download the zip again, replace its folder, press ↻ in chrome://extensions. Then export again.</div>`:''}${!m.stats?`<details style="margin-top:6px;font-size:11px"><summary class="dim">keys</summary><code style="word-break:break-all">${esc((c.raw.keys?.self||[]).join(', '))} | ${esc((c.raw.keys?.player||[]).join(', '))}</code></details>`:''}</div>`;
 }
 function gearSig(){ return SLOT_ORDER.map(sl=>S.gear[sl]||'').join('|'); }
 function applyCode(m){
@@ -1722,12 +1739,12 @@ function openImport(files,code){
      <input id="impCode" placeholder="Paste a build code (NCB1.…) from the Build Export extension or bookmarklet" spellcheck="false">
      <details class="inst" open><summary>How do I get a build code? <span class="dim">· วิธีเอาโค้ดบิลด์</span></summary>
        <div class="instgrid">
-         <div class="instc rec"><b>🐒 Tampermonkey <span class="chip a" style="font-size:10px">recommended · แนะนำ</span></b>
-           <ol><li>Install <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a> (free, one click from the Chrome Web Store)<br><span class="dim">ติดตั้ง Tampermonkey (ฟรี)</span></li>
-           <li>Chrome: right-click the Tampermonkey icon → <i>Manage extension</i> → turn on <b>Allow User Scripts</b><br><span class="dim">คลิกขวาไอคอน → จัดการส่วนขยาย → เปิด “อนุญาตสคริปต์ผู้ใช้”</span></li>
-           <li><a class="btn sm pri" href="nc-build-export.user.js" target="_blank" rel="noopener">Install Build Export script</a> → press <i>Install</i><br><span class="dim">กดติดตั้งสคริปต์</span></li>
-           <li>In the game, click <b>📋 Copy build</b> and paste the code here<br><span class="dim">ในเกมกดปุ่ม 📋 Copy build แล้ววางโค้ดที่นี่</span></li></ol>
-           <div class="dim" style="font-size:11px">Updates itself · อัปเดตเองอัตโนมัติ</div></div>
+         <div class="instc rec"><b>📌 Bookmark <span class="chip a" style="font-size:10px">easiest · ง่ายสุด</span> <span class="dim" style="font-weight:500">· no install · ไม่ต้องติดตั้ง</span></b>
+           <ol><li>Show the bookmarks bar: <b>Ctrl+Shift+B</b></li>
+           <li>Drag <a class="bmk" id="bmk" href="#" title="Drag me to your bookmarks bar, then click it while in the game">📌 NC Build Export</a> onto the bar<br><span class="dim">ลากปุ่มนี้ไปวางที่แถบบุ๊กมาร์ก</span></li>
+           <li>In the game, click the bookmark → the code is copied → paste it here<br><span class="dim">ในเกมกดบุ๊กมาร์ก โค้ดจะถูกคัดลอก แล้ววางที่นี่</span></li></ol>
+           <div class="dim" style="font-size:11px">Updating: delete the old bookmark and drag this one again · อัปเดต: ลบบุ๊กมาร์กเก่า แล้วลากอันใหม่ไปวาง</div></div>
+
          <div class="instc"><b>🧩 Chrome extension <span class="dim" style="font-weight:500">· zip · ติดตั้งเอง</span></b>
            <ol><li><a class="btn sm pri" href="nightcamp-build-export.zip" download>Download extension (.zip)</a><br><span class="dim">ดาวน์โหลดไฟล์ zip</span></li>
            <li>Unzip it: right-click the file → <i>Extract All…</i> Keep the folder somewhere it won't be deleted<br><span class="dim">คลิกขวา → แตกไฟล์ (Extract All) แล้วเก็บโฟลเดอร์ไว้ ห้ามลบ</span></li>
@@ -1737,10 +1754,6 @@ function openImport(files,code){
            <li>Pin it: puzzle-piece icon 🧩 → 📌 next to <i>Night Camp Build Export</i><br><span class="dim">กดรูปจิ๊กซอว์ แล้วปักหมุดส่วนขยาย</span></li>
            <li>In the game, click the extension icon → <b>Copy build code</b> → paste here<br><span class="dim">ในเกมกดไอคอนส่วนขยาย → Copy build code แล้ววางที่นี่</span></li></ol>
            <div class="dim" style="font-size:11px">Updating: download the new zip, replace the folder, press ↻ on the extension · อัปเดต: แทนที่โฟลเดอร์แล้วกด ↻</div></div>
-         <div class="instc"><b>📌 Bookmarklet <span class="dim" style="font-weight:500">· no install · ไม่ต้องติดตั้ง</span></b>
-           <ol><li>Show the bookmarks bar: <b>Ctrl+Shift+B</b></li>
-           <li>Drag <a class="bmk" id="bmk" href="#" title="Drag me to your bookmarks bar, then click it while in the game">📌 NC Build Export</a> onto the bar<br><span class="dim">ลากปุ่มนี้ไปวางที่แถบบุ๊กมาร์ก</span></li>
-           <li>In the game, click the bookmark → the code is copied<br><span class="dim">ในเกมกดบุ๊กมาร์ก โค้ดจะถูกคัดลอก</span></li></ol></div>
        </div></details></div>
    <div id="impList"></div><div id="impReview"></div>`);
   $('#bmk').href=bookmarkletHref(); document.querySelectorAll('.cp').forEach(c=>c.onclick=()=>{ (navigator.clipboard?navigator.clipboard.writeText(c.dataset.copy):Promise.reject()).then(()=>toast('Copied — paste it in a new tab’s address bar'),()=>toast('Type '+c.dataset.copy+' in a new tab')); }); $('#bmk').onclick=e=>{ e.preventDefault(); toast('Drag this link to your bookmarks bar'); };
@@ -1930,7 +1943,7 @@ function checkAtlases(){
 /* Game names and descriptions come from the wiki's own Thai file (I18N). Planner wording is translated here.
    A translator walks every new piece of text on the page, so panels, tooltips, windows and Best Gear all switch. */
 let LANG=(()=>{ try{ return localStorage.getItem('nc-lang')||'en'; }catch(e){ return 'en'; } })();
-const UI_TH={'Skill runes':'รูนสกิล','Season 2 runes':'รูน Season 2','Tier':'ขั้น','Remove':'ถอด','Only the runes the game lets this skill take':'แสดงเฉพาะรูนที่เกมให้ใส่สกิลนี้ได้','No rune fits this skill.':'ไม่มีรูนที่ใส่สกิลนี้ได้','◇ rune':'◇ รูน','Every usable item is tried in your build with':'ลองใส่ไอเทมทุกชิ้นที่ใช้ได้เข้าไปในบิลด์ของคุณ ด้วย',"the game's own Season 2 formulas":'สูตร Season 2 ของเกมเอง','(checked against the real game engine: stats exact, damage within ~2%).':'(เทียบกับเอนจินเกมจริงแล้ว: สเตตัสตรงเป๊ะ ดาเมจคลาดไม่เกิน ~2%)','= estimated DPS against the monsters near your level — their element, armour type, DEF and MDEF — with your skills on cooldown and after-cast delay, crit, accuracy, attack speed, passives that need a weapon type, item abilities and sets.':'= DPS โดยประมาณกับมอนใกล้เลเวลคุณ (ธาตุ ชนิดเกราะ DEF และ MDEF ของมัน) คิดคูลดาวน์และดีเลย์หลังร่าย คริ ความแม่น ความเร็วโจมตี พาสซีฟที่ต้องใช้อาวุธบางชนิด ความสามารถไอเทม และเซ็ต','= effective HP. Your own items keep their real rolls; candidates use their average roll.':'= HP ที่ใช้ได้จริง (EHP) · ไอเทมของคุณใช้ค่าที่สุ่มได้จริง ตัวเลือกใช้ค่ากลาง','Now:':'ตอนนี้:','Full sets':'ชุดเซ็ตเต็ม','wearing every piece together, with its set bonus':'ใส่ครบทุกชิ้นพร้อมโบนัสเซ็ต',"Your weapon is two-handed: a shield isn't worn (try a one-handed weapon to use one).":'อาวุธของคุณเป็นสองมือ จึงใส่โล่ไม่ได้ (ลองอาวุธมือเดียวถ้าอยากใช้โล่)','Skills':'สกิล','Estimated DPS':'DPS โดยประมาณ','All monsters':'มอนทั้งหมด','Basic hits':'ตีปกติ','Full sets':'ชุดเซ็ตเต็ม','EHP':'EHP','/ sec':'/ วิ','vs All monsters':'กับมอนทั้งหมด','vs Heavy Armor':'กับเกราะหนัก','vs Spirit':'กับวิญญาณ','vs Hide':'กับหนังสัตว์','vs Flesh':'กับเนื้อ','Equip set':'สวมทั้งเซ็ต','ASPD':'ASPD','MATK':'MATK','ATK':'ATK',
+const UI_TH={'⚠ This code is from an older Build Export (no item grades, rolls or options). Bookmark: delete the old bookmark and drag the new one from the guide below. Extension: download the zip again, replace its folder, press ↻ in chrome://extensions. Then export again.':'⚠ โค้ดนี้มาจาก Build Export เวอร์ชันเก่า (ไม่มีเกรด ค่าสุ่ม และออปชันของไอเทม) ถ้าใช้บุ๊กมาร์ก ให้ลบอันเก่าแล้วลากอันใหม่จากวิธีด้านล่าง ถ้าใช้ส่วนขยาย ให้ดาวน์โหลด zip ใหม่ แทนที่โฟลเดอร์เดิม แล้วกด ↻ ใน chrome://extensions จากนั้นเอาโค้ดใหม่อีกครั้ง','Updating: delete the old bookmark and drag this one again · อัปเดต: ลบบุ๊กมาร์กเก่า แล้วลากอันใหม่ไปวาง':'อัปเดต: ลบบุ๊กมาร์กเก่า แล้วลากอันใหม่ไปวาง','Skill runes':'รูนสกิล','Season 2 runes':'รูน Season 2','Tier':'ขั้น','Remove':'ถอด','Only the runes the game lets this skill take':'แสดงเฉพาะรูนที่เกมให้ใส่สกิลนี้ได้','No rune fits this skill.':'ไม่มีรูนที่ใส่สกิลนี้ได้','◇ rune':'◇ รูน','Every usable item is tried in your build with':'ลองใส่ไอเทมทุกชิ้นที่ใช้ได้เข้าไปในบิลด์ของคุณ ด้วย',"the game's own Season 2 formulas":'สูตร Season 2 ของเกมเอง','(checked against the real game engine: stats exact, damage within ~2%).':'(เทียบกับเอนจินเกมจริงแล้ว: สเตตัสตรงเป๊ะ ดาเมจคลาดไม่เกิน ~2%)','= estimated DPS against the monsters near your level — their element, armour type, DEF and MDEF — with your skills on cooldown and after-cast delay, crit, accuracy, attack speed, passives that need a weapon type, item abilities and sets.':'= DPS โดยประมาณกับมอนใกล้เลเวลคุณ (ธาตุ ชนิดเกราะ DEF และ MDEF ของมัน) คิดคูลดาวน์และดีเลย์หลังร่าย คริ ความแม่น ความเร็วโจมตี พาสซีฟที่ต้องใช้อาวุธบางชนิด ความสามารถไอเทม และเซ็ต','= effective HP. Your own items keep their real rolls; candidates use their average roll.':'= HP ที่ใช้ได้จริง (EHP) · ไอเทมของคุณใช้ค่าที่สุ่มได้จริง ตัวเลือกใช้ค่ากลาง','Now:':'ตอนนี้:','Full sets':'ชุดเซ็ตเต็ม','wearing every piece together, with its set bonus':'ใส่ครบทุกชิ้นพร้อมโบนัสเซ็ต',"Your weapon is two-handed: a shield isn't worn (try a one-handed weapon to use one).":'อาวุธของคุณเป็นสองมือ จึงใส่โล่ไม่ได้ (ลองอาวุธมือเดียวถ้าอยากใช้โล่)','Skills':'สกิล','Estimated DPS':'DPS โดยประมาณ','All monsters':'มอนทั้งหมด','Basic hits':'ตีปกติ','Full sets':'ชุดเซ็ตเต็ม','EHP':'EHP','/ sec':'/ วิ','vs All monsters':'กับมอนทั้งหมด','vs Heavy Armor':'กับเกราะหนัก','vs Spirit':'กับวิญญาณ','vs Hide':'กับหนังสัตว์','vs Flesh':'กับเนื้อ','Equip set':'สวมทั้งเซ็ต','ASPD':'ASPD','MATK':'MATK','ATK':'ATK',
 'Build Planner':'แพลนเนอร์','Skills, stats & gear on one screen':'สกิล สเตตัส และอุปกรณ์ ในหน้าเดียว',
 'Class':'อาชีพ','Level':'เลเวล','Build name':'ชื่อบิลด์','Reset':'รีเซ็ต','↻ Reset':'↻ รีเซ็ต','Share build':'แชร์บิลด์','Import build':'นำเข้าบิลด์','📥 Import build':'📥 นำเข้าบิลด์',
 '🧩 Install Build Export':'🧩 ติดตั้งตัวดึงบิลด์','Point rules':'กติกาแต้ม',
