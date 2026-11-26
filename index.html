@@ -421,6 +421,10 @@ eclipse:'อีคลิปส์แอสซาซิน',shadowlord:'ลอร
 starsaint:'สตาร์เซนต์',meteorfist:'มีทีเออร์ฟิสต์',beacon:'บีคอนคีปเปอร์',starshepherd:'สตาร์เชพเพิร์ด'};
 let LTH={}; try{ LTH=JSON.parse(localStorage.getItem('nc-th-skills')||'{}'); }catch(e){}
 const KIND_N={phys:'Physical',magic:'Magic',active:'Active',buff:'Buff',passive:'Passive'};
+// Traveler passives (Weapon Proficiency / Hardy Body / Steady Focus) are one shared skill in the game;
+// the data repeats them in every 1st job. Keep them under Traveler only.
+const TRAV_SK=new Set((D.jobs.find(j=>j.id==='traveler')||{sk:[]}).sk.map(s=>s.id));
+D.jobs.forEach(j=>{ if(j.id!=='traveler') j.sk=j.sk.filter(s=>!TRAV_SK.has(s.id)); });
 const JOB=Object.fromEntries(D.jobs.map(j=>[j.id,j]));
 const ITEM=Object.fromEntries(D.items.map(i=>[i.id,i]));
 const SET=Object.fromEntries(D.sets.map(s=>[s.id,s]));
@@ -430,7 +434,7 @@ const fmt=(n,d=0)=>(n==null||isNaN(n))?'–':Number(n).toLocaleString('en-US',{m
 
 /* ---------- state: 3 build presets; each build has the original simulator's shape (share links stay compatible) ---------- */
 const DEF_STATE=()=>({job:'archmage',baseLv:70,jobLv:{},skills:{},stats:{str:5,agi:5,vit:5,int:5,dex:5,luk:5},stStart:48,stPerLv:3,spPerJob:1,statMode:'game',statAdj:0,skillShared:true,runes:{},gear:{},lvFilter:true,useEquip:true,name:'',notes:{s:'',w:'',n:''}});
-const fix=o=>{ const s=Object.assign(DEF_STATE(),o||{}); s.notes=Object.assign({s:'',w:'',n:''},s.notes||{}); s.runes=s.runes||{}; if(!JOB[s.job]) s.job='archmage'; STATS.forEach(k=>{ s.stats[k]=Math.max(STAT_MIN,+s.stats[k]||STAT_MIN); }); return s; };
+const fix=o=>{ const s=Object.assign(DEF_STATE(),o||{}); s.notes=Object.assign({s:'',w:'',n:''},s.notes||{}); s.runes=s.runes||{}; if(!JOB[s.job]) s.job='archmage'; for(const m of [s.skills,s.runes]) for(const k of Object.keys(m)){ const [jj,sid]=k.split(':'); if(jj!=='traveler'&&TRAV_SK.has(sid)){ const nk='traveler:'+sid; if(m[nk]==null||(typeof m[k]==='number'&&m[k]>m[nk])) m[nk]=m[k]; delete m[k]; } } STATS.forEach(k=>{ s.stats[k]=Math.max(STAT_MIN,+s.stats[k]||STAT_MIN); }); return s; };
 let B=loadAll(), S=B.list[B.cur];
 function loadAll(){
   let b=null;
