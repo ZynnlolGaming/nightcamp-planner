@@ -800,6 +800,7 @@ const fmt=(n,d=0)=>(n==null||isNaN(n))?'–':Number(n).toLocaleString('en-US',{m
 /* ---------- state: 3 build presets; each build has the original simulator's shape (share links stay compatible) ---------- */
 const DEF_STATE=()=>({job:'archmage',baseLv:70,jobLv:{},skills:{},stats:{str:5,agi:5,vit:5,int:5,dex:5,luk:5},stStart:48,stPerLv:3,spPerJob:1,statMode:'game',statAdj:0,skillShared:true,runes:{},lore:{act:[null,null],pas:[null,null,null]},gear:{},rows:{},lvFilter:true,useEquip:true,name:'',notes:{s:'',w:'',n:''}});
 const fix=o=>{ const s=Object.assign(DEF_STATE(),o||{}); s.notes=Object.assign({s:'',w:'',n:''},s.notes||{}); s.runes=s.runes||{}; s.lore=Object.assign({act:[null,null],pas:[null,null,null]},s.lore||{}); if(!JOB[s.job]) s.job='archmage'; if(!(o&&o.rows)){ s.rows=null; rowsMigrate(s); } for(const m of [s.skills,s.runes]) for(const k of Object.keys(m)){ const [jj,sid]=k.split(':'); if(jj!=='traveler'&&TRAV_SK.has(sid)){ const nk='traveler:'+sid; if(m[nk]==null||(typeof m[k]==='number'&&m[k]>m[nk])) m[nk]=m[k]; delete m[k]; } } STATS.forEach(k=>{ s.stats[k]=Math.max(STAT_MIN,+s.stats[k]||STAT_MIN); }); return s; };
+const RETURNING=(()=>{ try{ return !!localStorage.getItem('nc-planner-v2'); }catch(e){ return false; } })(); // (used the planner before this visit)
 let B=loadAll(), S=B.list[B.cur];
 function loadAll(){
   let b=null;
@@ -1960,8 +1961,8 @@ function exportOld(raw){ return !!raw&&vNum(raw.xv)<vNum(EXPORT_V); }
 function updateBox(raw){
   if(!exportOld(raw)) return '';
   const via=raw.via, bm=via!=='extension', ex=via!=='bookmark';
-  return `<div class="updbox"><div class="updh">🔔 ${TH_('A new Build Export is out','มี Build Export เวอร์ชันใหม่')} <span class="chip a">v${EXPORT_V}</span><span class="dim">${TH_('yours','ของคุณ')}: ${raw.xv&&raw.xv!=='0'?'v'+esc(raw.xv):TH_('an older one','เวอร์ชันเก่า')}</span></div>
-    <div class="mu" style="font-size:12px;margin:4px 0 8px">${TH_('Your code was made with an older version, so some things may be missing (like the Lore Book). Update it, export again, and import the new code.','โค้ดนี้มาจากเวอร์ชันเก่า บางอย่างอาจไม่มา (เช่น สมุดวิชามอน) อัปเดตแล้วดึงบิลด์ใหม่อีกครั้ง')}</div>
+  return `<div class="updbox"><div class="updh">🔔 ${TH_('A new Build Export is out','มี Build Export เวอร์ชันใหม่')} <span class="chip a">v${EXPORT_V}</span>${raw.generic?'':`<span class="dim">${TH_('yours','ของคุณ')}: ${raw.xv&&raw.xv!=='0'?'v'+esc(raw.xv):TH_('an older one','เวอร์ชันเก่า')}</span>`}</div>
+    <div class="mu" style="font-size:12px;margin:4px 0 8px">${raw.generic?TH_('If you use the Build Export bookmark or extension, update it: older ones miss things like the Lore Book.','ถ้าคุณใช้บุ๊กมาร์กหรือส่วนขยายดึงบิลด์ ให้อัปเดตด้วย ตัวเก่าดึงบางอย่างไม่มา เช่น สมุดวิชามอน'):TH_('Your code was made with an older version, so some things may be missing (like the Lore Book). Update it, export again, and import the new code.','โค้ดนี้มาจากเวอร์ชันเก่า บางอย่างอาจไม่มา (เช่น สมุดวิชามอน) อัปเดตแล้วดึงบิลด์ใหม่อีกครั้ง')}</div>
     ${bm?`<div class="upds"><b>${TH_('Bookmark','บุ๊กมาร์ก')}</b> ${TH_('delete the old bookmark, then drag the new one from the install guide to your bookmarks bar.','ลบบุ๊กมาร์กเก่า แล้วลากอันใหม่จากวิธีติดตั้งไปไว้ที่แถบบุ๊กมาร์ก')}</div>`:''}
     ${ex?`<div class="upds"><b>${TH_('Extension','ส่วนขยาย')}</b> ${TH_('download the zip again, replace the old folder, then press ↻ on it in chrome://extensions.','ดาวน์โหลด zip ใหม่ แทนที่โฟลเดอร์เดิม แล้วกด ↻ ที่ส่วนขยายใน chrome://extensions')}</div>`:''}
     <button class="btn pri sm" style="margin-top:8px" onclick="closeModal();document.getElementById('bInstall').click()">${TH_('Open the install guide','เปิดวิธีติดตั้ง')}</button></div>`;
@@ -1972,6 +1973,7 @@ function exportReminder(){
   let o=null; try{ o=JSON.parse(localStorage.getItem('nc-xv')||'null'); }catch(e){}
   // (imported before this check existed: a saved build that came from the game counts as an older Build Export)
   if(!o&&B.list.some(x=>x&&(x.copies||x.gameGear||x.extraStats))) o={xv:'0',via:null};
+  if(!o&&RETURNING) o={xv:'0',via:null,generic:true}; // (a returning visitor who may have a bookmark or extension from before)
   if(!o||!exportOld(o)) return; try{ if(localStorage.getItem('nc-xv-seen')===EXPORT_V) return; localStorage.setItem('nc-xv-seen',EXPORT_V); }catch(e){ return; }
   openModal(`<h2>🔔 ${TH_('Update your Build Export','อัปเดตตัวดึงบิลด์')}</h2>`,`<div style="max-width:560px">${updateBox(o)}<div class="dim" style="font-size:11.5px">${TH_('You see this once for each new version.','จะแสดงครั้งเดียวต่อเวอร์ชันใหม่')}</div></div>`);
 }
