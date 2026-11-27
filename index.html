@@ -359,6 +359,8 @@ html[lang=th] body{font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,Inter,sys
 .dpsh .info:hover{border-color:#ffb14a;color:#ffb14a}
 .dpsn4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.dpsn4 div{background:rgba(0,0,0,.18);border:1px solid rgba(255,160,80,.18);border-radius:9px;padding:5px 8px;display:flex;flex-direction:column}
 .dpsn4 small{font-size:10px;color:var(--dim)}.dpsn4 b{font-size:13.5px;color:#ffc777;font-variant-numeric:tabular-nums}
+.updbox{grid-column:1/-1;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,201,77,.7);background:linear-gradient(135deg,rgba(255,201,77,.14),rgba(255,122,47,.06));margin-bottom:10px}
+.updh{font-weight:800;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.upds{font-size:12px;margin:3px 0}.upds b{color:#ffd36b;margin-right:4px}
 .dpsc{margin:12px 0 6px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(255,150,60,.12),rgba(255,80,120,.06));border:1px solid rgba(255,160,80,.28)}
 .dpsh{display:flex;align-items:center;gap:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.dpsh select{margin-left:auto;font-size:11px;padding:2px 6px;background:var(--bg2);color:inherit;border:1px solid var(--ln);border-radius:6px}
 .dpsv{display:flex;align-items:baseline;gap:4px;margin:4px 0 6px}.dpsv b{font-size:26px;color:#ffb14a;font-variant-numeric:tabular-nums}.dpsv .sp{flex:1}.dpsv b.ehp{font-size:15px;color:#7fe0a0}
@@ -1827,7 +1829,7 @@ let IMP_TH={};
  * Listens for one 'nightcamp:online-snapshot' (the same event the game already broadcasts),
  * picks out build data only (no name, id, coins, chat, party) and returns a short code. */
 async function ncExportBuild(){
-  const NC=window.NC;
+  const NC=window.NC, XV='1.4.0', via=window.__ncVia==='bm'?'bookmark':'extension'; try{ delete window.__ncVia; }catch(e){} // (XV: this exporter's version; the planner asks for an update when it is older than its own)
   if(!NC) return {error:'Night Camp is not loaded in this tab. Open play.nightcamp.app and enter the game first.'};
   const self=await new Promise(res=>{
     let done=false;
@@ -1883,7 +1885,7 @@ async function ncExportBuild(){
       if(any(act)||any(pas)) lore={act:act.map(t=>t?[t,lvOf(t)]:null),pas:pas.map(t=>t?[t,lvOf(t)]:null),n:Object.keys(bl.arts||{}).filter(t=>(bl.arts[t]|0)>0).length,src:'server'}; }
     if(!lore){ const G=A&&A.got; if(G&&(G.slots||G.pas)) lore={act:(G.slots||[]).map(t=>t?[t,lvOf(t)]:null),pas:(G.pas||[]).map(t=>t?[t,lvOf(t)]:null),n:Object.keys(G.got||{}).filter(t=>(G.got[t]||0)>0).length,src:'page'}; } }catch(e){}
   const base=self&&self.base&&SK.every(k=>typeof self.base[k]==='number')?Object.fromEntries(SK.map(k=>[k,self.base[k]])):null;
-  const out={v:1,t:Date.now(),job,lv:pick('lv'),jobLv:pick('jobLv'),skills,equip,runes,lore,stats:statC.slice(0,6),pts,names,base,total,gear,left,skLeft,skPts,copies,
+  const out={v:1,xv:XV,via,t:Date.now(),job,lv:pick('lv'),jobLv:pick('jobLv'),skills,equip,runes,lore,stats:statC.slice(0,6),pts,names,base,total,gear,left,skLeft,skPts,copies,
     keys:{self:self?Object.keys(self).slice(0,120):[],player:P?Object.keys(P).slice(0,120):[]}};
   const json=JSON.stringify(out);
   const b64=btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -1904,7 +1906,7 @@ function ncBookmarklet(){
     document.body.appendChild(box);
   })();
 }
-function bookmarkletHref(){ return 'javascript:'+encodeURIComponent('(function(){'+ncExportBuild.toString()+';('+ncBookmarklet.toString()+')();})()'); }
+function bookmarkletHref(){ return 'javascript:'+encodeURIComponent('(function(){window.__ncVia="bm";'+ncExportBuild.toString()+';('+ncBookmarklet.toString()+')();})()'); }
 
 /* rune kinds (names from the game; effects from the rune's tier table and quality roll) */
 const RUNE_EN={split:'Split',pierce:'Pierce',bounce:'Bounce',echo:'Echo',wide:'Wide',focus:'Focus',linger:'Linger',pull:'Pull',corpse:'Corpse Blast',haste:'Haste',heavy:'Heavy',blood:'Blood',execute:'Execute',corrode:'Corrode',burn:'Burn',curse:'Curse',skyfall:'Skyfall',rush:'Rush',ambush:'Ambush',stagger:'Stagger',pal:'Pal',share:'Share',shell:'Shell',moonrite:'Moon',arc:'Chain Lightning',wildfire:'Wildfire',frostbite:'Frostbite',venom:'Venom',shade:'Shade',trap:'Trap',apierce:'Armor Pierce',wpierce:'Spell Pierce',grenade:'Grenade',ricochet:'Ricochet',hollow:'Hollow Point',duel:'Duel',dragon:'Dragon Fire',barrel:'Double Barrel',recoil:'Recoil',spmeteor:'Meteor Call',spthunder:'Thunder Call',spfrost:'Frost Call',spquake:'Quake Call',spmagnus:'Magnus Call',spwhirl:'Whirlwind Call',splord:'Great Thunder Call',spshadow:'Shadow Call'};
@@ -1952,9 +1954,28 @@ function mapBuildCode(o){
   out.copies={}; for(const cp of Object.values(o.copies||{})){ const sl=Object.keys(out.equip).find(s=>out.equip[s]===cp.id&&!out.copies[s]); if(sl) out.copies[sl]=cp; }
   return out;
 }
+const EXPORT_V='1.4.0'; // (the newest Build Export: ext/exporter.js XV; codes from an older one ask for an update)
+const vNum=v=>String(v||'0').split('.').map(x=>+x||0).reduce((a,x)=>a*1000+x,0);
+function exportOld(raw){ return !!raw&&vNum(raw.xv)<vNum(EXPORT_V); }
+function updateBox(raw){
+  if(!exportOld(raw)) return '';
+  const via=raw.via, bm=via!=='extension', ex=via!=='bookmark';
+  return `<div class="updbox"><div class="updh">🔔 ${TH_('A new Build Export is out','มี Build Export เวอร์ชันใหม่')} <span class="chip a">v${EXPORT_V}</span><span class="dim">${TH_('yours','ของคุณ')}: ${raw.xv&&raw.xv!=='0'?'v'+esc(raw.xv):TH_('an older one','เวอร์ชันเก่า')}</span></div>
+    <div class="mu" style="font-size:12px;margin:4px 0 8px">${TH_('Your code was made with an older version, so some things may be missing (like the Lore Book). Update it, export again, and import the new code.','โค้ดนี้มาจากเวอร์ชันเก่า บางอย่างอาจไม่มา (เช่น สมุดวิชามอน) อัปเดตแล้วดึงบิลด์ใหม่อีกครั้ง')}</div>
+    ${bm?`<div class="upds"><b>${TH_('Bookmark','บุ๊กมาร์ก')}</b> ${TH_('delete the old bookmark, then drag the new one from the install guide to your bookmarks bar.','ลบบุ๊กมาร์กเก่า แล้วลากอันใหม่จากวิธีติดตั้งไปไว้ที่แถบบุ๊กมาร์ก')}</div>`:''}
+    ${ex?`<div class="upds"><b>${TH_('Extension','ส่วนขยาย')}</b> ${TH_('download the zip again, replace the old folder, then press ↻ on it in chrome://extensions.','ดาวน์โหลด zip ใหม่ แทนที่โฟลเดอร์เดิม แล้วกด ↻ ที่ส่วนขยายใน chrome://extensions')}</div>`:''}
+    <button class="btn pri sm" style="margin-top:8px" onclick="closeModal();document.getElementById('bInstall').click()">${TH_('Open the install guide','เปิดวิธีติดตั้ง')}</button></div>`;
+}
+// the version of the Build Export you last imported with: an older one gets a reminder popup once per new version
+function noteExport(raw){ try{ if(raw) localStorage.setItem('nc-xv',JSON.stringify({xv:raw.xv||'0',via:raw.via||null})); }catch(e){} }
+function exportReminder(){
+  let o=null; try{ o=JSON.parse(localStorage.getItem('nc-xv')||'null'); }catch(e){}
+  if(!o||!exportOld(o)) return; try{ if(localStorage.getItem('nc-xv-seen')===EXPORT_V) return; localStorage.setItem('nc-xv-seen',EXPORT_V); }catch(e){ return; }
+  openModal(`<h2>🔔 ${TH_('Update your Build Export','อัปเดตตัวดึงบิลด์')}</h2>`,`<div style="max-width:560px">${updateBox(o)}<div class="dim" style="font-size:11.5px">${TH_('You see this once for each new version.','จะแสดงครั้งเดียวต่อเวอร์ชันใหม่')}</div></div>`);
+}
 function codeCard(c){
   const m=c.m;
-  return `<div class="rv wide"><h4>Build code <span class="good" style="font-size:11px">exact data from the game</span></h4><div class="kvr">
+  return `${updateBox(c.raw)}<div class="rv wide"><h4>Build code <span class="good" style="font-size:11px">exact data from the game</span></h4><div class="kvr">
     <span>Class</span><span>${m.job?esc(JOB[m.job].n)+' · '+esc(TH[m.job]||m.names.job||''):`<span class="bad">unknown class “${esc(m.rawJob)}”</span>`} · Lv ${m.lv??'?'} · Job Lv ${m.jobLv??'?'}</span>
     <span>Stats</span><span>${m.stats?STATS.map(k=>`${D.stats[k].n} ${m.stats.v[k]}`).join(' · ')+(m.left!=null?` · ${m.left} points left`:''):'<span class="bad">not found in the game data — keeps your current stats (send me the “keys” line below so I can add it)</span>'}</span>
     <span>Skills</span><span>${m.skills.filter(x=>x.lv>0).length} learned${m.unknownSk.length?` · <span class="bad">${m.unknownSk.length} unknown: ${esc(m.unknownSk.join(', '))}</span>`:''}</span>
@@ -2283,6 +2304,7 @@ function buildReview(){
   $('#impApply').onclick=applyImport;
 }
 function applyImport(){
+  if(IMP.code) noteExport(IMP.code.raw);
   if(IMP.code&&!IMP.shots.some(s=>s.res)){ applyCode(IMP.code.m); closeModal(); renderAll(); toast('Build imported from the game'); return; }
   if(IMP.code) applyCode(IMP.code.m);
   const rv=IMP.review, q=s=>document.querySelector('#impReview '+s), val=f=>{ const e=q(`[data-f="${f}"]`); return e&&e.value!==''?e.value:null; };
@@ -2507,6 +2529,7 @@ startI18n();
 $('#langBtn').onclick=()=>setLang(LANG==='th'?'en':'th');
 loadLive();
 if(/^#ncb=/.test(location.hash)){ const c=decodeURIComponent(location.hash.slice(5)); history.replaceState(null,'',location.href.split('#')[0]); openImport(null,c); }
+else setTimeout(exportReminder,800);
 </script>
 </body>
 </html>
