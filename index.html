@@ -951,14 +951,35 @@ function autoMax(j){
 const baseSlot=sl=>sl==='acc2'?'acc':sl;
 function candidates(sl,allow){ return D.items.filter(i=>i.s===baseSlot(sl)&&(sl!=='weapon'||allow.has(i.wt))); }
 function slotItems(sl){ return D.items.filter(i=>i.s===baseSlot(sl)); }
+/* a locked skill's requirements, raised for you: each needed skill (in any job of the path, 1st / 2nd / 3rd) up to the level asked,
+   with its own requirements first. All or nothing: when the points run out nothing changes and the toast says what it needs. */
+function fillReqs(path,s,seen){
+  seen=seen||new Set(); if(seen.has(s.id)) return true; seen.add(s.id);
+  for(const [rid,rl] of (s.req||[])){
+    if(findReqLv(path,rid)>=rl) continue;
+    const j=path.find(x=>x.sk.some(y=>y.id===rid)); if(!j) return false;
+    const rs=j.sk.find(y=>y.id===rid);
+    if(!fillReqs(path,rs,seen)) return false;
+    let lv=skLv(j.id,rid); const want=Math.min(rl,rs.max);
+    while(lv<want&&skillLeft(j)>0){ lv++; S.skills[skKey(j.id,rid)]=lv; }
+    if(lv<want) return false;
+  }
+  return reqOk(path,s);
+}
+function reqChain(path,s,seen){ seen=seen||new Set(); const out=[]; for(const [rid,rl] of (s.req||[])){ if(seen.has(rid)||findReqLv(path,rid)>=rl) continue; seen.add(rid); const j=path.find(x=>x.sk.some(y=>y.id===rid)); const rs=j&&j.sk.find(y=>y.id===rid); if(rs) out.push(...reqChain(path,rs,seen)); out.push(skName(rid)+' Lv'+rl); } return out; }
 /* set a skill to a level, respecting requirements, points and dependents */
 function setSkill(jid,sid,target,quiet){
   const j=JOB[jid], s=j.sk.find(x=>x.id===sid), path=pathOf(S.job), cur=skLv(jid,sid);
   target=Math.max(freeLv(sid),Math.min(s.max,target));
   if(target>cur){
-    if(!reqOk(path,s)){ if(!quiet) toast('Locked — needs '+s.req.map(([r,l])=>skName(r)+' Lv'+l).join(', ')); return false; }
+    const keep=Object.assign({},S.skills);
+    if(!reqOk(path,s)){ // (its requirements first, from any job of the path)
+      const need=reqChain(path,s);
+      if(!fillReqs(path,s)){ S.skills=keep; if(!quiet) toast(TH_('Not enough skill points for what it needs: ','แต้มสกิลไม่พอสำหรับสกิลที่ต้องมีก่อน: ')+need.join(', ')); return false; }
+      if(!quiet&&need.length) toast(TH_('Also raised: ','อัปให้ด้วย: ')+need.join(', '));
+    }
     const room=skillLeft(j);
-    if(room<=0){ if(!quiet) toast(S.skillShared?'No skill points left — raise a Job Lv':`No ${j.n} points left — raise its Job Lv`); return false; }
+    if(room<=0){ S.skills=keep; if(!quiet) toast(S.skillShared?'No skill points left — raise a Job Lv':`No ${j.n} points left — raise its Job Lv`); return false; }
     target=Math.min(target,cur+room);
   }else if(target<cur){
     const dep=dependents(path,sid,target);
@@ -1275,7 +1296,7 @@ function skRow(j,s,path,c){
   return `<div class="srow ${lv?'lrn':''} ${lv>=s.max?'max':''} ${ok?'':'lock'}" data-row="${j.id}|${s.id}">
     <div class="sic ${s.kind==='passive'?'ps':''}" data-sk="${j.id}|${s.id}" data-tip="sk|${j.id}|${s.id}">${spr('skills',s.ic,28)}<i class="kd k-${esc(s.kind)}"></i></div>
     <div class="smid"><div class="n" data-tip="sk|${j.id}|${s.id}">${esc(s.n)}</div><div class="m">${meta}</div>${runeSlots(j,s,lv)}
-      <input type="range" min="${freeLv(s.id)}" max="${s.max}" value="${lv}" data-sl="${j.id}|${s.id}" ${ok||lv?'':'disabled'} title="${freeLv(s.id)?'Lv 1 is free in game':''}"></div>
+      <input type="range" min="${freeLv(s.id)}" max="${s.max}" value="${lv}" data-sl="${j.id}|${s.id}" title="${freeLv(s.id)?'Lv 1 is free in game':''}"></div>
     <div class="slv"><b>${lv}<span class="dim">/${s.max}</span></b></div>
   </div>`;
 }
