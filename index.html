@@ -355,6 +355,10 @@ html[lang=th] body{font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,Inter,sys
 .rck{display:flex;flex-wrap:wrap;gap:6px}.rsk{position:relative;cursor:help}.rsk i{position:absolute;right:-3px;bottom:-4px;font-style:normal;font-size:10px;font-weight:800;background:var(--pn2);border:1px solid var(--ln2);border-radius:6px;padding:0 3px}
 .rcu{display:flex;flex-direction:column;gap:6px}.rcu div{display:grid;grid-template-columns:1fr auto 38px;gap:6px;font-size:11.5px;position:relative;padding-bottom:5px}.rcu i{position:absolute;left:0;bottom:0;height:3px;border-radius:2px;background:linear-gradient(90deg,#b98cff,#7f6bff)}.rcu .dim{text-align:right}
 .rcb{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.dpsh .info{font-style:normal;display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--ln2);color:var(--mu);font-size:10px;font-weight:800;font-family:Georgia,serif;cursor:help;text-transform:none;letter-spacing:0}
+.dpsh .info:hover{border-color:#ffb14a;color:#ffb14a}
+.dpsn4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.dpsn4 div{background:rgba(0,0,0,.18);border:1px solid rgba(255,160,80,.18);border-radius:9px;padding:5px 8px;display:flex;flex-direction:column}
+.dpsn4 small{font-size:10px;color:var(--dim)}.dpsn4 b{font-size:13.5px;color:#ffc777;font-variant-numeric:tabular-nums}
 .dpsc{margin:12px 0 6px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(255,150,60,.12),rgba(255,80,120,.06));border:1px solid rgba(255,160,80,.28)}
 .dpsh{display:flex;align-items:center;gap:8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}.dpsh select{margin-left:auto;font-size:11px;padding:2px 6px;background:var(--bg2);color:inherit;border:1px solid var(--ln);border-radius:6px}
 .dpsv{display:flex;align-items:baseline;gap:4px;margin:4px 0 6px}.dpsv b{font-size:26px;color:#ffb14a;font-variant-numeric:tabular-nums}.dpsv .sp{flex:1}.dpsv b.ehp{font-size:15px;color:#7fe0a0}
@@ -572,6 +576,10 @@ function gmEval(inp, opts){
   const bestKind=()=>{ const a=batk+(watk[0]+watk[1])/2, mm=(matk[0]+matk[1])/2; return mm>a?'magic':'phys'; };
   // ---- a second of fighting: the skills on their cooldowns and the global after-cast delay, basic hits in the time left ----
   const sk=[], perSk={}; let curseK=1;
+  // (a pack: opts.n monsters around the hero. An area skill (cast class a / z / B) reaches the one it is aimed at and a share of the
+  // others by its size: ~60% for a normal area or zone, ~80% for a big one, x1.32 at resonance tier II (areas +15%);
+  // at most the number its card says ('up to 5 enemies'); single-target skills, summons and basic hits stay on one)
+  const nT=Math.max(1,opts.n||1), reach=(sid,S)=>{ if(nT<=1||!['a','z','B'].includes(S.k)) return 1; let k=S.k==='B'?0.8:0.6; if(((inp.res||{})[sid]||0)>=2) k=Math.min(1,k*1.3225); return Math.max(1,Math.min((inp.maxT&&inp.maxT[sid])||99,nT,1+(nT-1)*k)); };
   for(const sid in inp.skills){ const S=GM.SK[sid], lv=inp.skills[sid]; if(!S||!lv||!wOk(sid)) continue; const wb=wBon(sid);
     const kind=S.t==='best'?bestKind():S.t==='magic'?'magic':'phys';
     const rf=gmRuneFx(sid,(inp.runes||{})[sid],W), c3=(GM.C3[inp.job]&&GM.C3[inp.job][sid])||1;
@@ -584,7 +592,7 @@ function gmEval(inp, opts){
     // a zone or a summon keeps hitting by itself for about its cooldown (rotiming.js: its cooldown ~ how long it lasts), about once a second
     const lasting=S.k==='z'||S.k==='m', hits=lasting?Math.max(1,Math.round(S.cd||5)):1;
     const addC=Math.min(rf.add,0.5*hits); // (procs and extra hits: at most 50% of the hero's own damage, proto_s2_procs.js)
-    const cast=one*hits+one*addC; // (echo, skyfall, procs, linger...: once a cast, on one hit's worth)
+    const cast=(one*hits+one*addC)*reach(sid,S); // (echo, skyfall, procs, linger...: once a cast, on one hit's worth; x the monsters it reaches)
     perSk[sid]=one*(1+addC); if(cast>0&&t>0) sk.push({sid,per:cast,t,cd,lasting}); }
   sk.sort((x,y)=>(y.lasting-x.lasting)||(y.per/y.t-x.per/x.t));
   let left=1, skillDps=0; const used=[];
@@ -1318,7 +1326,7 @@ function itemTip(id,slot){
 function setTip(id){ const st=SET[id]; return `<b>${esc(st.n)}</b> <span class="dim">Lv ${st.lv}</span><div class="mu" style="margin-top:4px">Pieces: ${st.pcs.map(p=>esc(ITEM[p]?.n||p)).join(', ')}</div><p>2 pc: ${esc(st.b2)}<br>3 pc: ${esc(st.b3)}</p>${st.pas?`<p class="mu">Passive: ${esc(st.pas)}</p>`:''}`; }
 function statTip(k){ return `<b>${D.stats[k].n}</b><p>• ${esc(D.stats[k].d).replace(/ · /g,'<br>• ')}</p>`; }
 function jobTip(id){ const j=JOB[id]; return `<div class="th">${spr('jobs',j.ic,44)}<div><b>${esc(j.n)}</b><span class="mu">${tierN(j.tier)} · HP ${j.hp} · SP ${j.sp} · ${j.sk.length} skills</span></div></div><p>${esc(j.d)}</p>${REC[id]?`<p class="acc">★ ${esc(REC[id])}</p>`:''}<div class="mu">Weapons: ${[...allowedWeapons(id)].map(w=>esc(D.wtypes[w]||w)).join(', ')||'–'}</div>`; }
-function tipHTML(key){ const [t,a,b]=key.split('|'); return t==='sk'?skillTip(a,b): t==='it'?itemTip(a,b): t==='set'?setTip(a): t==='st'?statTip(a): t==='job'?jobTip(a):''; }
+function tipHTML(key){ const [t,a,b]=key.split('|'); if(t==='dps') return `<div style="max-width:320px;line-height:1.45;font-size:12px">${DPS_NOTE}</div>`; return t==='sk'?skillTip(a,b): t==='it'?itemTip(a,b): t==='set'?setTip(a): t==='st'?statTip(a): t==='job'?jobTip(a):''; }
 function showTip(el,x,y){ const key=el.dataset.tip; tipAnchor=el; if(tipEl.dataset.cur!==key){ tipEl.innerHTML=tipHTML(key); tipEl.dataset.cur=key; } tipEl.style.display='block'; placeTip(x,y); highlight(key); }
 function placeTip(x,y){ const r=tipEl.getBoundingClientRect(), W=innerWidth, H=innerHeight; let l=x+16, t=y+14; if(l+r.width>W-8) l=x-r.width-16; if(t+r.height>H-8) t=Math.max(8,H-r.height-8); tipEl.style.left=Math.max(8,l)+'px'; tipEl.style.top=t+'px'; }
 function hideTip(){ tipEl.style.display='none'; tipEl.dataset.cur=''; tipAnchor=null; highlight(null); }
@@ -2031,21 +2039,26 @@ function gmInput(gear){
   const st={}; let wdmg=null; const G=gear||S.gear;
   for(const sl of SLOT_ORDER){ const cp=copyOf(sl); if(cp&&cp.id===G[sl]){ if(cp.st) st[sl]=cp.st; if(sl==='weapon'&&Array.isArray(cp.dmg)) wdmg=cp.dmg; } }
   const runes={}; pathOf(S.job).forEach(j=>j.sk.forEach(s=>{ const arr=S.runes[skKey(j.id,s.id)], lv=skLv(j.id,s.id); if(!arr||!lv) return; const on=arr.map((r,i)=>r&&lv>=runeSlotLv(s.id,i)?r:null); if(on.some(Boolean)) runes[s.id]=on; }));
-  return {job:S.job,lv:S.baseLv,stats:S.stats,skills:gmSkills(),runes,lore:loreInput(),res:lineInfo(S.job).by,gear:Object.assign({},G),rows:S.useEquip?rowsMap(G):{},st,wdmg,extra:S.useEquip?(S.extraStats||{}):{},items:ITEM,sets:SET,K:D.sw.K,W1:D.sw.W1,DT:D.sw.DT,AR:D.armour};
+  return {job:S.job,lv:S.baseLv,stats:S.stats,skills:gmSkills(),runes,lore:loreInput(),res:lineInfo(S.job).by,maxT:maxTargets(),gear:Object.assign({},G),rows:S.useEquip?rowsMap(G):{},st,wdmg,extra:S.useEquip?(S.extraStats||{}):{},items:ITEM,sets:SET,K:D.sw.K,W1:D.sw.W1,DT:D.sw.DT,AR:D.armour};
 }
 let GM_ARM='all';
+function maxTargets(){ if(maxTargets.v) return maxTargets.v; const o={}; D.jobs.forEach(j=>j.sk.forEach(s=>{ const m=/up to (\d+) (?:enemies|monsters|targets|foes)/i.exec(s.d||''); if(m) o[s.id]=+m[1]; })); return maxTargets.v=o; }
 function gmNow(){ try{ return gmEval(gmInput(),{armour:GM_ARM}); }catch(e){ console.warn('gm',e); return null; } }
 const gmLv=i=>GM.LV[i.id]||i.lv;
 const ARM_N={all:'All monsters',heavy:'Heavy Armor',spirit:'Spirit',hide:'Hide',flesh:'Flesh'};
+let DPS_NOTE='';
 function dpsCard(g){
   if(!g) return '';
   const n=g.tg.length, top=[...g.used].sort((a,b)=>b.rate*b.per-a.rate*a.per).slice(0,3);
   const tot=g.dps||1, pct=v=>Math.round(v/tot*100);
-  return `<div class="dpsc"><div class="dpsh"><span class="dim">Estimated DPS</span><select id="gmArm" title="Who you fight">${Object.keys(ARM_N).map(k=>`<option value="${k}" ${k===GM_ARM?'selected':''}>${ARM_N[k]}</option>`).join('')}</select></div>
+  let pk=[]; try{ const inp=gmInput(); pk=[2,5,10].map(k=>gmEval(inp,{armour:GM_ARM,n:k}).dps); }catch(e){}
+  DPS_NOTE=TH_(`<b>Estimated DPS</b><br>vs ${n} monster type${n>1?'s':''} near Lv ${S.baseLv} (their element, armour, DEF / MDEF). Skills on cooldown + after-cast delay, crit, accuracy and attack speed, with the game's own Season 2 formulas.<br><br><b>2 / 5 / 10 targets</b>: a pack around you. Area skills hit their target and a share of the others by their size (about 60%, 80% for big areas, more at line tier II, never past "up to N"); single-target skills, summons, basic hits and the Lore Book stay on one.<br><br>Real fights vary (movement, buffs, procs) — compare with a DPS meter in game.`,
+    `<b>DPS โดยประมาณ</b><br>เทียบกับมอน ${n} ชนิดใกล้ Lv ${S.baseLv} (ธาตุ เกราะ DEF / MDEF ของมัน) คิดคูลดาวน์ + ดีเลย์หลังร่าย คริ ความแม่น และความเร็วโจมตี ด้วยสูตร Season 2 ของเกม<br><br><b>2 / 5 / 10 ตัว</b>: มอนรุมรอบตัว สกิลวงโดนตัวเป้าหมายและตัวอื่นบางส่วนตามขนาดวง (ราว 60% วงใหญ่ 80% สายขั้น II วงกว้างขึ้น ไม่เกิน "สูงสุด N ตัว") สกิลเป้าเดียว สัตว์อัญเชิญ ตีปกติ และสมุดวิชามอนนับตัวเดียว<br><br>การต่อสู้จริงต่างไปได้ (เดิน บัฟ โปรค) ลองเทียบกับ DPS meter ในเกม`);
+  return `<div class="dpsc"><div class="dpsh"><span class="dim">${TH_('Estimated DPS','DPS โดยประมาณ')}</span><i class="info" data-tip="dps">i</i><select id="gmArm" title="Who you fight">${Object.keys(ARM_N).map(k=>`<option value="${k}" ${k===GM_ARM?'selected':''}>${ARM_N[k]}</option>`).join('')}</select></div>
     <div class="dpsv"><b>${fmt(g.dps)}</b><span class="dim"> / sec</span><span class="sp"></span><span class="dim" title="Effective HP: HP after DEF, MDEF, VIT damage cut, dodge and graze">EHP</span> <b class="ehp">${fmt(g.ehp)}</b></div>
     <div class="dpsbar"><i style="width:${pct(g.skillDps)}%" title="Skills"></i></div>
     <div class="dpsl">${top.map(u=>`<span>${esc(skName(u.sid))} <b>${pct(u.rate*u.per)}%</b></span>`).join('')}${g.basicDps>0.5?`<span>Basic hits <b>${pct(g.basicDps)}%</b></span>`:''}${g.lore&&g.lore.add>0.5?`<span>Lore Book <b>${pct(g.lore.add*(g.lore.mult||1))}%</b></span>`:''}</div>
-    <div class="dim dpsn">Single target, vs ${n} monster type${n>1?'s':''} near Lv ${S.baseLv} (their element, armour, DEF/MDEF) · skills on cooldown + after-cast delay, crit, accuracy and attack speed · the game's own Season 2 formulas. Real fights vary (movement, buffs, runes, procs) — compare with a DPS meter in game.</div></div>`;
+    ${pk.length?`<div class="dpsn4">${[[1,g.dps],[2,pk[0]],[5,pk[1]],[10,pk[2]]].map(([k,v])=>`<div><small>${k} ${TH_(k>1?'targets':'target','ตัว')}</small><b>${fmt(v)}</b></div>`).join('')}</div>`:''}</div>`;
 }
 
 /* ---------- Best Gear: every usable item in your build, with the game's own formulas ---------- */
