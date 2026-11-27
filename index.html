@@ -1875,9 +1875,13 @@ async function ncExportBuild(){
       if(c){ o.g=c.g||0; o.rows=(c.rows||[]).map(r=>{ let t=''; try{ t=String(NC.rowText(r)||'').replace(/<[^>]*>/g,''); }catch(e){} return {k:r.k,v:r.v,tier:r.tier||0,sub:r.sub||null,t}; }); }
       if(sl==='weapon'){ try{ const v=R.held(P); if(v&&Array.isArray(v.dmg)) o.dmg=v.dmg; }catch(e){} }
       copies[sl]=o; } } }catch(e){}
-  let lore=null; // (the Lore Book: slots 7 / 8 and P1-P3 with each art's level; js/bl_arts.js BL.arts.got)
-  try{ const A=NC.BL&&NC.BL.arts, G=(self&&self.arts&&self.arts.slots)?self.arts:(A&&A.got), lvOf=t=>{ try{ return A&&A.levelOf?A.levelOf(t):1; }catch(e){ return 1; } };
-    if(G&&(G.slots||G.pas)) lore={act:(G.slots||[]).map(t=>t?[t,lvOf(t)]:null),pas:(G.pas||[]).map(t=>t?[t,lvOf(t)]:null),n:Object.keys(G.got||{}).filter(t=>(G.got[t]||0)>0).length}; }catch(e){}
+  let lore=null; // (the Lore Book: slots 7 / 8 and P1-P3 with each art's level. Online the server's record first: self.buildLoot
+  // slots / pas / pas2 / pas3 and artPts (online/buildloot.js mirrorArts); else the page's own book, js/bl_arts.js BL.arts.got)
+  try{ const A=NC.BL&&NC.BL.arts, lvOf=t=>{ try{ if(bl.artV&&A&&A.levelOfPts) return A.levelOfPts(((bl.artPts||{})[t])|0)||1; return A&&A.levelOf?A.levelOf(t)||1:1; }catch(e){ return 1; } };
+    const own=t=>typeof t==='string'&&t?t:null, any=a=>a.some(Boolean);
+    if(bl&&(Array.isArray(bl.slots)||bl.pas||bl.pas2||bl.pas3)){ const act=[0,1].map(i=>own(Array.isArray(bl.slots)?bl.slots[i]:null)), pas=[bl.pas,bl.pas2,bl.pas3].map(own);
+      if(any(act)||any(pas)) lore={act:act.map(t=>t?[t,lvOf(t)]:null),pas:pas.map(t=>t?[t,lvOf(t)]:null),n:Object.keys(bl.arts||{}).filter(t=>(bl.arts[t]|0)>0).length,src:'server'}; }
+    if(!lore){ const G=A&&A.got; if(G&&(G.slots||G.pas)) lore={act:(G.slots||[]).map(t=>t?[t,lvOf(t)]:null),pas:(G.pas||[]).map(t=>t?[t,lvOf(t)]:null),n:Object.keys(G.got||{}).filter(t=>(G.got[t]||0)>0).length,src:'page'}; } }catch(e){}
   const base=self&&self.base&&SK.every(k=>typeof self.base[k]==='number')?Object.fromEntries(SK.map(k=>[k,self.base[k]])):null;
   const out={v:1,t:Date.now(),job,lv:pick('lv'),jobLv:pick('jobLv'),skills,equip,runes,lore,stats:statC.slice(0,6),pts,names,base,total,gear,left,skLeft,skPts,copies,
     keys:{self:self?Object.keys(self).slice(0,120):[],player:P?Object.keys(P).slice(0,120):[]}};
