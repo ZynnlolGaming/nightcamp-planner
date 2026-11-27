@@ -1970,6 +1970,8 @@ function updateBox(raw){
 function noteExport(raw){ try{ if(raw) localStorage.setItem('nc-xv',JSON.stringify({xv:raw.xv||'0',via:raw.via||null})); }catch(e){} }
 function exportReminder(){
   let o=null; try{ o=JSON.parse(localStorage.getItem('nc-xv')||'null'); }catch(e){}
+  // (imported before this check existed: a saved build that came from the game counts as an older Build Export)
+  if(!o&&B.list.some(x=>x&&(x.copies||x.gameGear||x.extraStats))) o={xv:'0',via:null};
   if(!o||!exportOld(o)) return; try{ if(localStorage.getItem('nc-xv-seen')===EXPORT_V) return; localStorage.setItem('nc-xv-seen',EXPORT_V); }catch(e){ return; }
   openModal(`<h2>🔔 ${TH_('Update your Build Export','อัปเดตตัวดึงบิลด์')}</h2>`,`<div style="max-width:560px">${updateBox(o)}<div class="dim" style="font-size:11.5px">${TH_('You see this once for each new version.','จะแสดงครั้งเดียวต่อเวอร์ชันใหม่')}</div></div>`);
 }
